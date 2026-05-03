@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Underwriting Copilot — RAG Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Lato:wght@300;400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #faf8f4;
+    --paper: #f5f2ec;
+    --ink: #1a1814;
+    --ink2: #4a4640;
+    --ink3: #8a847c;
+    --ink4: #c0bbb4;
+    --rule: rgba(26,24,20,0.1);
+    --rule2: rgba(26,24,20,0.06);
+    --teal: #1a6b5a;
+    --teal-light: #e8f3f0;
+    --teal-mid: #2d9b82;
+    --amber: #b85c00;
+    --amber-light: #fef3e8;
+    --red: #b03030;
+    --red-light: #faeaea;
+    --blue: #1a3d6b;
+    --blue-light: #e8eef7;
+    --gold: #9a7b2f;
+    --gold-light: #fdf8ed;
+    --serif: 'Playfair Display', Georgia, serif;
+    --sans: 'Lato', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-weight: 300;
+    min-height: 100vh;
+  }
+
+  /* Masthead */
+  .masthead {
+    background: var(--ink);
+    color: var(--cream);
+    padding: 0 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 52px;
+    border-bottom: 3px solid var(--teal-mid);
+  }
+  .masthead-left { display: flex; align-items: center; gap: 20px; }
+  .masthead-logo {
+    font-family: var(--serif);
+    font-size: 18px;
+    letter-spacing: 0.02em;
+    color: #fff;
+  }
+  .masthead-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.2); }
+  .masthead-sub { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.5); font-weight: 400; }
+  .masthead-badge {
+    font-size: 10px; font-family: var(--mono); letter-spacing: 0.05em;
+    color: var(--teal-mid); background: rgba(45,155,130,0.12);
+    border: 1px solid rgba(45,155,130,0.3); border-radius: 3px;
+    padding: 3px 10px;
+  }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: 340px 1fr; min-height: calc(100vh - 52px); }
+
+  /* Left sidebar */
+  .sidebar {
+    background: var(--paper);
+    border-right: 1px solid var(--rule);
+    padding: 28px 24px;
+    display: flex; flex-direction: column; gap: 28px;
+    overflow-y: auto;
+  }
+
+  .sidebar-section { }
+  .sidebar-section-title {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink3); margin-bottom: 12px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--rule2);
+  }
+
+  /* Document index */
+  .doc-list { display: flex; flex-direction: column; gap: 2px; }
+  .doc-item {
+    display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+    border-radius: 4px; cursor: pointer; transition: background 0.12s;
+    border: 1px solid transparent;
+  }
+  .doc-item:hover { background: rgba(26,24,20,0.04); }
+  .doc-type-pill {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 2px; flex-shrink: 0;
+  }
+  .pill-guideline { background: var(--teal-light); color: var(--teal); }
+  .pill-loss { background: var(--amber-light); color: var(--amber); }
+  .pill-manual { background: var(--blue-light); color: var(--blue); }
+  .pill-rate { background: var(--gold-light); color: var(--gold); }
+  .doc-title { font-size: 11.5px; color: var(--ink2); line-height: 1.4; }
+  .doc-chunks { font-size: 10px; font-family: var(--mono); color: var(--ink4); margin-top: 1px; }
+
+  /* Query examples */
+  .example-grid { display: flex; flex-direction: column; gap: 6px; }
+  .example-btn {
+    text-align: left; padding: 10px 12px;
+    background: white; border: 1px solid var(--rule);
+    border-radius: 4px; cursor: pointer; transition: all 0.12s;
+    font-family: var(--sans); font-size: 12px; font-weight: 300; color: var(--ink2);
+    line-height: 1.45;
+  }
+  .example-btn:hover { border-color: var(--teal-mid); color: var(--teal); background: var(--teal-light); }
+  .example-topic { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink4); margin-bottom: 3px; }
+
+  /* Main content */
+  .main { display: flex; flex-direction: column; overflow-y: auto; }
+
+  /* Query bar */
+  .query-bar {
+    background: white;
+    border-bottom: 1px solid var(--rule);
+    padding: 20px 36px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .query-bar-inner { display: flex; gap: 12px; align-items: flex-start; }
+  .query-textarea {
+    flex: 1; padding: 12px 16px;
+    border: 1px solid var(--rule); border-radius: 4px;
+    background: var(--cream); font-family: var(--sans); font-size: 14px;
+    font-weight: 300; color: var(--ink); resize: none; outline: none;
+    line-height: 1.6; min-height: 52px; max-height: 120px;
+    transition: border-color 0.15s;
+  }
+  .query-textarea:focus { border-color: var(--teal-mid); }
+  .query-textarea::placeholder { color: var(--ink4); }
+  .query-submit {
+    padding: 12px 24px; background: var(--teal);
+    border: none; border-radius: 4px; color: white;
+    font-family: var(--sans); font-size: 13px; font-weight: 700;
+    letter-spacing: 0.04em; cursor: pointer; white-space: nowrap;
+    transition: all 0.15s; height: 52px;
+  }
+  .query-submit:hover { background: var(--teal-mid); }
+  .query-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Answer area */
+  .answer-area { padding: 32px 36px; flex: 1; }
+
+  /* Empty state */
+  .empty-state { padding: 80px 0; text-align: center; }
+  .empty-rule { width: 48px; height: 3px; background: var(--ink4); margin: 0 auto 24px; }
+  .empty-title { font-family: var(--serif); font-size: 26px; color: var(--ink2); margin-bottom: 10px; font-weight: 400; }
+  .empty-sub { font-size: 13px; color: var(--ink3); line-height: 1.8; max-width: 420px; margin: 0 auto; }
+
+  /* Answer card */
+  .answer-card { max-width: 820px; }
+
+  /* Meta bar */
+  .meta-bar {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+    padding-bottom: 16px; border-bottom: 1px solid var(--rule2);
+    flex-wrap: wrap;
+  }
+  .meta-item { display: flex; align-items: center; gap: 6px; }
+  .meta-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink4); }
+  .meta-val { font-size: 11px; font-family: var(--mono); color: var(--ink2); }
+  .confidence-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 2px; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .conf-high { background: var(--teal-light); color: var(--teal); border: 1px solid rgba(26,107,90,0.2); }
+  .conf-medium { background: var(--amber-light); color: var(--amber); border: 1px solid rgba(184,92,0,0.2); }
+  .conf-low { background: var(--red-light); color: var(--red); border: 1px solid rgba(176,48,48,0.2); }
+
+  /* Answer text */
+  .answer-text {
+    font-family: var(--serif); font-size: 17px; line-height: 1.85;
+    color: var(--ink); margin-bottom: 28px;
+  }
+  .answer-text strong { font-weight: 600; }
+
+  /* Inline citation markers */
+  .cite-mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--teal); color: white;
+    font-size: 9px; font-family: var(--mono); font-weight: 500;
+    vertical-align: super; margin-left: 1px; cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .cite-mark:hover { transform: scale(1.15); }
+
+  /* Disclaimer */
+  .disclaimer {
+    padding: 12px 16px; background: var(--gold-light);
+    border-left: 3px solid var(--gold); border-radius: 0 4px 4px 0;
+    font-size: 12px; color: var(--amber); line-height: 1.55;
+    margin-bottom: 32px; font-weight: 400;
+  }
+
+  /* Citations section */
+  .citations-header {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink3); margin-bottom: 14px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--rule2);
+  }
+  .citations-list { display: flex; flex-direction: column; gap: 10px; }
+  .citation-item {
+    display: flex; gap: 14px; padding: 14px 16px;
+    background: white; border: 1px solid var(--rule); border-radius: 4px;
+    transition: border-color 0.12s;
+  }
+  .citation-item:hover { border-color: var(--teal-mid); }
+  .citation-num {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--teal); color: white;
+    font-size: 11px; font-family: var(--mono); font-weight: 500;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .citation-body { flex: 1; }
+  .citation-title { font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
+  .citation-meta { font-size: 10px; font-family: var(--mono); color: var(--ink3); margin-bottom: 8px; }
+  .citation-excerpt {
+    font-size: 12px; color: var(--ink2); line-height: 1.6;
+    font-style: italic;
+    padding-left: 10px; border-left: 2px solid var(--rule);
+  }
+  .citation-scores { display: flex; gap: 12px; margin-top: 8px; }
+  .citation-score { font-size: 10px; font-family: var(--mono); color: var(--ink4); }
+  .citation-score span { color: var(--ink2); font-weight: 500; }
+
+  /* Retrieval stats */
+  .stats-strip {
+    display: flex; gap: 0; margin-bottom: 28px;
+    border: 1px solid var(--rule); border-radius: 4px; overflow: hidden;
+  }
+  .stat-cell {
+    flex: 1; padding: 12px 16px; background: white;
+    border-right: 1px solid var(--rule2); text-align: center;
+  }
+  .stat-cell:last-child { border-right: none; }
+  .stat-val { font-family: var(--mono); font-size: 19px; font-weight: 500; color: var(--ink); }
+  .stat-lbl { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink4); margin-top: 2px; }
+
+  /* Loading */
+  .loading-area { padding: 80px 0; text-align: center; }
+  .loading-rule { width: 48px; height: 2px; background: var(--teal-mid); margin: 0 auto 24px; animation: loading-bar 1.4s ease-in-out infinite; }
+  @keyframes loading-bar {
+    0%,100% { width: 48px; opacity: 1; }
+    50% { width: 120px; opacity: 0.7; }
+  }
+  .loading-text { font-family: var(--serif); font-size: 16px; color: var(--ink3); font-style: italic; }
+  .loading-stage { font-size: 11px; font-family: var(--mono); color: var(--ink4); margin-top: 8px; }
+
+  /* Pipeline steps inline */
+  .pipeline-strip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 14px 36px; background: var(--paper);
+    border-bottom: 1px solid var(--rule); overflow-x: auto;
+  }
+  .pipe-node {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--ink4); font-family: var(--mono); white-space: nowrap;
+  }
+  .pipe-node.active { color: var(--teal); }
+  .pipe-node.done { color: var(--ink2); }
+  .pipe-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink4); }
+  .pipe-dot.active { background: var(--teal-mid); animation: dot-pulse 0.8s infinite; }
+  .pipe-dot.done { background: var(--teal); }
+  @keyframes dot-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .pipe-arrow { color: var(--ink4); font-size: 10px; }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-left">
+    <div class="masthead-logo">Underwriting Copilot</div>
+    <div class="masthead-divider"></div>
+    <div class="masthead-sub">Knowledge Retrieval System</div>
+  </div>
+  <span class="masthead-badge">RAG · Azure AI Search · GPT-4o · portfolio demo</span>
+</header>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Indexed Document Corpus</div>
+      <div class="doc-list" id="docList"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Sample Queries</div>
+      <div class="example-grid" id="exampleGrid"></div>
+    </div>
+
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <div class="query-bar">
+      <div class="query-bar-inner">
+        <textarea
+          class="query-textarea"
+          id="queryInput"
+          placeholder="Ask an underwriting question — coverage limits, exclusions, eligibility rules, loss run data..."
+          rows="2"
+        ></textarea>
+        <button class="query-submit" id="queryBtn" onclick="submitQuery()">
+          Ask →
+        </button>
+      </div>
+    </div>
+
+    <div id="pipelineStrip" style="display:none" class="pipeline-strip"></div>
+
+    <div class="answer-area" id="answerArea">
+      <div class="empty-state">
+        <div class="empty-rule"></div>
+        <div class="empty-title">Ask anything about our book</div>
+        <div class="empty-sub">
+          The copilot retrieves answers grounded in your indexed underwriting guidelines,
+          coverage manuals, and loss run reports — every fact cited to its source.
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+</div>
+
+<script>
+// Document corpus metadata
+const DOCS = [
+  { id:"UG-2024-001", title:"Commercial Property Underwriting Guidelines v12.3", type:"guideline", chunks:12, pages:94 },
+  { id:"LR-2024-Q2", title:"Commercial Auto Loss Run Analysis Q2 2024", type:"loss_run", chunks:8, pages:22 },
+  { id:"CM-2024-003", title:"General Liability Coverage Manual 2024", type:"manual", chunks:14, pages:112 },
+  { id:"RF-2024-001", title:"Workers Compensation Rate Filing 2024", type:"rate", chunks:10, pages:56 },
+  { id:"UG-2024-002", title:"Cyber Liability Underwriting Guidelines 2024", type:"guideline", chunks:9, pages:74 },
+];
+
+const PILL_MAP = {
+  guideline: ["pill-guideline","Guideline"],
+  loss_run: ["pill-loss","Loss Run"],
+  manual: ["pill-manual","Manual"],
+  rate: ["pill-rate","Rate Filing"],
+};
+
+const EXAMPLES = [
+  { topic:"Property", q:"What is the maximum TIV we can write for a single habitational location without reinsurance?" },
+  { topic:"Property", q:"Is flood covered under our standard commercial property policy, and what are the eligibility rules?" },
+  { topic:"Property", q:"What sprinkler and fire alarm requirements apply to warehouse occupancies?" },
+  { topic:"Auto", q:"What are the driver tier definitions and what surcharge applies to Tier 3 drivers?" },
+  { topic:"Cyber", q:"What security controls must an account have before we can offer cyber coverage?" },
+  { topic:"Cyber", q:"What ransomware sublimits apply to healthcare and financial services accounts?" },
+  { topic:"Liability", q:"Is liquor liability included in our standard GL policy for a bar or restaurant?" },
+  { topic:"Workers Comp", q:"What is the e-mod threshold that triggers senior underwriter approval?" },
+];
+
+// Render sidebar
+document.getElementById('docList').innerHTML = DOCS.map(d => {
+  const [cls, label] = PILL_MAP[d.type];
+  return `<div class="doc-item">
+    <span class="doc-type-pill ${cls}">${label}</span>
+    <div>
+      <div class="doc-title">${d.title}</div>
+      <div class="doc-chunks">${d.chunks} chunks · ${d.pages}pp</div>
+    </div>
+  </div>`;
+}).join('');
+
+document.getElementById('exampleGrid').innerHTML = EXAMPLES.map(e => `
+  <button class="example-btn" onclick="loadExample(${JSON.stringify(e.q).replace(/"/g,'&quot;')})">
+    <div class="example-topic">${e.topic}</div>
+    ${e.q}
+  </button>
+`).join('');
+
+function loadExample(q) {
+  document.getElementById('queryInput').value = q;
+  document.getElementById('queryInput').focus();
+}
+
+// Pipeline step labels
+const PIPE_STEPS = ["Embed query","Vector retrieve","Cross-encode rerank","Generate answer","Build citations"];
+
+function renderPipeline(active) {
+  const strip = document.getElementById('pipelineStrip');
+  strip.style.display = 'flex';
+  strip.innerHTML = PIPE_STEPS.map((s, i) => {
+    const cls = i < active ? 'done' : i === active ? 'active' : '';
+    return `
+      ${i > 0 ? '<span class="pipe-arrow">›</span>' : ''}
+      <div class="pipe-node ${cls}">
+        <div class="pipe-dot ${cls}"></div>
+        ${s}
+      </div>
+    `;
+  }).join('');
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function submitQuery() {
+  const q = document.getElementById('queryInput').value.trim();
+  if (!q) return;
+
+  const btn = document.getElementById('queryBtn');
+  btn.disabled = true;
+  btn.textContent = 'Searching…';
+
+  // Animate pipeline
+  for (let i = 0; i <= PIPE_STEPS.length; i++) {
+    renderPipeline(i);
+    if (i < PIPE_STEPS.length) {
+      document.getElementById('answerArea').innerHTML = `
+        <div class="loading-area">
+          <div class="loading-rule"></div>
+          <div class="loading-text">Retrieving from ${DOCS.length} documents…</div>
+          <div class="loading-stage">${PIPE_STEPS[i]}</div>
+        </div>`;
+      await delay(380 + Math.random() * 200);
+    }
+  }
+
+  const result = simulate(q);
+  renderAnswer(q, result);
+
+  btn.disabled = false;
+  btn.textContent = 'Ask →';
+}
+
+// Enter to submit
+document.getElementById('queryInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitQuery(); }
+});
+
+function simulate(query) {
+  const q = query.toLowerCase();
+
+  // Corpus knowledge base
+  const KNOWLEDGE = {
+    flood: {
+      answer: "Standard commercial property policies **exclude flood** as defined in ISO CP 10 30 [1]. Flood coverage may be offered as a manuscript endorsement, but only for properties in **FEMA Flood Zone X or B** — Zones A, AE, V, and VE are non-eligible [1]. The maximum available flood sublimit is **$5M per occurrence** [1]. Coastal properties within 1,000 feet of tidal water require a separate **wind/hail deductible of 3–5% of TIV** regardless of flood eligibility [1].",
+      cites: [{ n:1, doc:"Commercial Property Underwriting Guidelines v12.3", type:"guideline", section:"Flood & Water Exclusions", page:67, score:0.91, rr:0.94, excerpt:"Standard commercial property policies exclude flood as defined in ISO CP 10 30. Flood coverage may be offered as a manuscript endorsement for properties in FEMA Flood Zone X or B only; Zones A, AE, V, and VE are non-eligible..." }],
+      conf:"high", rationale:"Direct match to flood exclusion section with specific zone eligibility rules.", retrieved:8, reranked:3, tokens:210, cost:0.0074, ms:1240
+    },
+    tiv: {
+      answer: "The maximum single-location TIV for habitational risks is **$50M** without reinsurance approval [1]. Properties exceeding this threshold must be submitted to **facultative reinsurance** with a minimum **45-day lead time** [1]. Business interruption coverage is capped at **12 months of gross profit** for standard accounts; extended BI up to **24 months** may be offered to accounts with 3+ years of loss-free history [1]. Always confirm the specific treaty terms with the reinsurance desk before quoting accounts near the threshold.",
+      cites: [{ n:1, doc:"Commercial Property Underwriting Guidelines v12.3", type:"guideline", section:"Coverage Limits & Sublimits", page:34, score:0.89, rr:0.92, excerpt:"Maximum single-location TIV for habitational risks is $50M without reinsurance approval. Properties exceeding this threshold require submission to facultative reinsurance with a minimum 45-day lead time..." }],
+      conf:"high", rationale:"Exact TIV limit found in guidelines with clear threshold and escalation path.", retrieved:7, reranked:3, tokens:195, cost:0.0068, ms:1180
+    },
+    driver: {
+      answer: "Driver risk is segmented into three tiers [1]. **Tier 1 (preferred)** requires an MVR clear of major violations for **5 years** and fewer than 2 minor violations in 3 years [1]. **Tier 2 (standard)** allows 1 major violation or 3 minor violations in 3 years [1]. **Tier 3 (non-standard)** requires **senior underwriter approval** and carries a **25% surcharge** on base premium [1]. Drivers with a DUI/DWI in the past **7 years are ineligible** for coverage [1]. The Q2 2024 loss run shows 7.13% claim frequency with average severity of $18,400 — accounts with **3+ at-fault claims in 36 months** require senior referral at renewal [2].",
+      cites: [
+        { n:1, doc:"Commercial Auto Loss Run Analysis Q2 2024", type:"loss_run", section:"Driver Risk Segmentation", page:11, score:0.88, rr:0.91, excerpt:"Driver risk tiers: Tier 1 (preferred) requires MVR clear of major violations for 5 years and <2 minor violations in 3 years. Tier 2 (standard) allows 1 major violation or 3 minor violations..." },
+        { n:2, doc:"Commercial Auto Loss Run Analysis Q2 2024", type:"loss_run", section:"Summary Statistics", page:3, score:0.72, rr:0.76, excerpt:"Q2 2024 commercial auto book: 1,247 policies in force, 89 reported claims, 7.13% claim frequency. Accounts with 3+ at-fault claims in 36 months should be referred to senior underwriting..." },
+      ],
+      conf:"high", rationale:"Driver tier definitions found with exact surcharge and eligibility rules.", retrieved:9, reranked:4, tokens:248, cost:0.0081, ms:1360
+    },
+    cyber: {
+      answer: "All cyber applicants must complete the **Technology Questionnaire (TQ-CY-2024)** before a quote can be issued [1]. Minimum qualifying controls are: (1) **MFA on all email and remote access**, (2) **EDR/XDR on 100% of endpoints**, (3) **immutable offsite backups** tested at least quarterly, and (4) critical patches applied **within 30 days** [1]. **Accounts lacking MFA are ineligible** for cyber coverage — no exceptions [1]. Ransomware sublimits apply by sector: healthcare and financial services are capped at **$5M**, manufacturing and retail at **$10M**; all other sectors receive the full policy limit [2]. Accounts with a prior ransomware event within the last **24 months** face a **5-year waiting period** before full sublimits apply [2].",
+      cites: [
+        { n:1, doc:"Cyber Liability Underwriting Guidelines 2024", type:"guideline", section:"Technology Requirements", page:12, score:0.93, rr:0.95, excerpt:"All cyber applicants must complete the technology questionnaire (TQ-CY-2024). Minimum qualifying controls: MFA on all email and remote access; EDR/XDR endpoint protection on 100% of endpoints; immutable offsite backups tested at least quarterly..." },
+        { n:2, doc:"Cyber Liability Underwriting Guidelines 2024", type:"guideline", section:"Ransomware Sublimits", page:28, score:0.87, rr:0.89, excerpt:"Ransomware coverage sublimits apply for accounts in higher-risk sectors: healthcare ($5M maximum sublimit), financial services ($5M), manufacturing ($10M), retail ($10M)..." },
+      ],
+      conf:"high", rationale:"Complete eligibility requirements and sublimit schedule found in cyber guidelines.", retrieved:10, reranked:4, tokens:272, cost:0.0088, ms:1420
+    },
+    sprinkler: {
+      answer: "Accounts with TIV above **$5M** must maintain a **central station monitored fire alarm system** [1]. Sprinkler systems are **mandatory** for: restaurants and food service operations, warehouses exceeding **10,000 sq ft**, and any occupancy with woodworking operations [1]. Failure to maintain required safeguards **voids the protective safeguard warranty** and may result in **mid-term cancellation** [1]. Verify safeguard compliance at inspection and confirm central station monitoring certificate is current before binding.",
+      cites: [{ n:1, doc:"Commercial Property Underwriting Guidelines v12.3", type:"guideline", section:"Protective Safeguards Requirements", page:89, score:0.90, rr:0.92, excerpt:"All accounts with TIV above $5M must have a central station monitored fire alarm system. Sprinkler systems are mandatory for: restaurants and food service operations, warehouses exceeding 10,000 sq ft..." }],
+      conf:"high", rationale:"Specific safeguard requirements found with mandatory triggers and consequences.", retrieved:7, reranked:3, tokens:188, cost:0.0066, ms:1150
+    },
+    liquor: {
+      answer: "Liquor liability is **excluded from standard GL** for any insured whose operations involve manufacturing, selling, distributing, or serving alcoholic beverages [1]. Bars, restaurants, and event venues serving alcohol **require a separate liquor liability (dram shop) policy** [1]. The standard GL does include **host liquor liability** for non-habitually-serving insureds (e.g., office holiday parties) up to **$1M per occurrence** [1]. Confirm whether alcohol service is incidental or primary to determine the correct structure — if in doubt, require the separate dram shop policy.",
+      cites: [{ n:1, doc:"General Liability Coverage Manual 2024", type:"manual", section:"Liquor Liability", page:55, score:0.88, rr:0.91, excerpt:"Liquor liability is excluded from standard GL for any insured whose operations involve manufacturing, selling, distributing, or serving alcoholic beverages. A separate liquor liability policy (dram shop) is required for bars, restaurants, and event venues..." }],
+      conf:"high", rationale:"Definitive exclusion and exception rules found in GL coverage manual.", retrieved:8, reranked:3, tokens:204, cost:0.0072, ms:1200
+    },
+    emod: {
+      answer: "The experience modification factor is calculated by NCCI or the applicable state bureau using **3 prior policy years**, excluding the most recent year [1]. An e-mod above **1.25** requires **senior underwriter approval** and a mandatory **risk improvement plan** [1]. E-mods above **1.50** are ineligible for the standard market — refer to **specialty or E&S lines** [1]. The e-mod calculation is mandatory for all accounts with payroll exceeding **$25,000** in any state [1]. Annual payroll audits are required; non-cooperation results in estimated premium at **150% of expiring** [1].",
+      cites: [{ n:1, doc:"Workers Compensation Rate Filing 2024", type:"rate", section:"Experience Modification Factor", page:7, score:0.91, rr:0.93, excerpt:"Experience modification factor is calculated by the NCCI or applicable state bureau using 3 prior policy years, excluding the most recent year. An e-mod above 1.25 requires senior underwriter approval and mandatory risk improvement plan..." }],
+      conf:"high", rationale:"Exact e-mod thresholds and escalation rules found in WC rate filing.", retrieved:8, reranked:3, tokens:218, cost:0.0076, ms:1190
+    },
+    ransomware: {
+      answer: "Ransomware sublimits vary by industry sector [1]. **Healthcare** and **financial services** accounts are capped at a **$5M maximum sublimit** [1]. **Manufacturing** and **retail** accounts receive a **$10M sublimit** [1]. All other sectors receive the **full policy limit** for ransomware coverage [1]. The retention for ransomware is **2× the standard cyber retention** [1]. Accounts that experienced a ransomware event within the prior **24 months** are subject to a **5-year waiting period** before the full sublimit applies [1].",
+      cites: [{ n:1, doc:"Cyber Liability Underwriting Guidelines 2024", type:"guideline", section:"Ransomware Sublimits", page:28, score:0.94, rr:0.96, excerpt:"Ransomware coverage sublimits apply for accounts in higher-risk sectors: healthcare ($5M maximum sublimit), financial services ($5M), manufacturing ($10M), retail ($10M)..." }],
+      conf:"high", rationale:"Complete ransomware sublimit schedule found with sector-specific limits.", retrieved:9, reranked:3, tokens:196, cost:0.0069, ms:1170
+    },
+  };
+
+  // Match query to knowledge
+  const matchKey = (keys) => keys.some(k => q.includes(k));
+  let result;
+
+  if (matchKey(["flood","water","coastal","zone","tidal"])) result = KNOWLEDGE.flood;
+  else if (matchKey(["tiv","maximum","habitational","limit","reinsurance","capacity","25m","50m"])) result = KNOWLEDGE.tiv;
+  else if (matchKey(["driver","tier","mvr","dui","violation","surcharge","auto","fleet"])) result = KNOWLEDGE.driver;
+  else if (matchKey(["cyber","mfa","multi-factor","edr","backup","patch","endpoint","technology"])) result = KNOWLEDGE.cyber;
+  else if (matchKey(["sprinkler","fire alarm","safeguard","warehouse","protective"])) result = KNOWLEDGE.sprinkler;
+  else if (matchKey(["liquor","alcohol","bar","restaurant","dram","host liquor"])) result = KNOWLEDGE.liquor;
+  else if (matchKey(["e-mod","emod","experience mod","workers comp","workers'","wc","payroll","ncci"])) result = KNOWLEDGE.emod;
+  else if (matchKey(["ransomware","sublimit","healthcare","sector"])) result = KNOWLEDGE.ransomware;
+  else {
+    // Generic low-confidence response
+    result = {
+      answer: "The indexed document corpus does not contain a direct answer to this specific question. The retrieved sources touch on related underwriting principles, but the specific rules or limits you are asking about may be in documents not yet indexed — or the question may require actuarial or legal input beyond the scope of the guidelines. Please consult the primary underwriting manual directly or escalate to senior underwriting for a definitive answer.",
+      cites: [],
+      conf:"low", rationale:"Query does not match any high-confidence source in the indexed corpus.", retrieved:4, reranked:2, tokens:110, cost:0.0042, ms:980
+    };
+  }
+
+  result.query = query;
+  return result;
+}
+
+const TYPE_PILL = {
+  guideline: ["pill-guideline","Guideline"],
+  loss_run: ["pill-loss","Loss Run"],
+  manual: ["pill-manual","Manual"],
+  rate: ["pill-rate","Rate Filing"],
+};
+
+function renderAnswer(query, r) {
+  // Render inline citation markers
+  let answerHtml = r.answer.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  answerHtml = answerHtml.replace(/\[(\d+)\]/g, (_, n) =>
+    `<span class="cite-mark" title="Source ${n}">${n}</span>`
+  );
+
+  const confClass = { high:'conf-high', medium:'conf-medium', low:'conf-low' }[r.conf];
+  const confLabel = { high:'High Confidence', medium:'Medium Confidence', low:'Low Confidence' }[r.conf];
+
+  const citesHtml = r.cites.length === 0
+    ? '<div style="font-size:13px;color:var(--ink3);font-style:italic;">No source citations — answer is from general knowledge only.</div>'
+    : r.cites.map(c => {
+        const [cls, label] = TYPE_PILL[c.type] || ["pill-guideline","Source"];
+        return `
+        <div class="citation-item">
+          <div class="citation-num">${c.n}</div>
+          <div class="citation-body">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span class="doc-type-pill ${cls}" style="font-size:8px">${label}</span>
+              <span class="citation-title">${c.doc}</span>
+            </div>
+            <div class="citation-meta">${c.section ? c.section + ' · ' : ''}p.${c.page}</div>
+            <div class="citation-excerpt">"${c.excerpt}"</div>
+            <div class="citation-scores">
+              <span class="citation-score">vector sim <span>${(c.score*100).toFixed(0)}%</span></span>
+              <span class="citation-score">rerank <span>${(c.rr*100).toFixed(0)}%</span></span>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+
+  document.getElementById('answerArea').innerHTML = `
+    <div class="answer-card">
+      <div class="meta-bar">
+        <div class="meta-item">
+          <span class="meta-label">Confidence</span>
+          <span class="confidence-badge ${confClass}">${confLabel}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Retrieved</span>
+          <span class="meta-val">${r.retrieved} chunks</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Reranked to</span>
+          <span class="meta-val">${r.reranked}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Latency</span>
+          <span class="meta-val">${r.ms}ms</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Cost</span>
+          <span class="meta-val">$${r.cost.toFixed(4)}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Tokens</span>
+          <span class="meta-val">${r.tokens}</span>
+        </div>
+      </div>
+
+      <div class="stats-strip">
+        <div class="stat-cell"><div class="stat-val">${r.cites.length}</div><div class="stat-lbl">Citations</div></div>
+        <div class="stat-cell"><div class="stat-val">${DOCS.length}</div><div class="stat-lbl">Docs Indexed</div></div>
+        <div class="stat-cell"><div class="stat-val">${r.retrieved}</div><div class="stat-lbl">Chunks Retrieved</div></div>
+        <div class="stat-cell"><div class="stat-val">${r.ms}ms</div><div class="stat-lbl">Total Latency</div></div>
+      </div>
+
+      <div class="answer-text">${answerHtml}</div>
+
+      <div class="disclaimer">
+        ⚠ This response is AI-generated from indexed underwriting documents. Always validate against primary sources before binding coverage. Not a substitute for underwriter judgment.
+      </div>
+
+      <div class="citations-header">Source Citations (${r.cites.length})</div>
+      <div class="citations-list">${citesHtml}</div>
+    </div>
+  `;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+name: LLM Eval Regression Gate
+
+# Runs on every PR and merge to main.
+# Blocks merge if any metric drops below threshold vs baseline.
+
+on:
+  pull_request:
+    branches: [main, staging]
+    paths:
+      - 'backend/**'
+      - 'prompts/**'
+      - '.github/workflows/eval.yml'
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'   # Weekly Monday 6am UTC
+
+env:
+  PYTHON_VERSION: '3.11'
+  EVAL_SERVICE_URL: ${{ secrets.EVAL_SERVICE_URL }}
+  AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+  AZURE_OPENAI_KEY: ${{ secrets.AZURE_OPENAI_KEY }}
+
+jobs:
+  # ── Unit Tests ──────────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Run pytest
+        run: |
+          pytest backend/tests/ -v \
+            --cov=backend \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --junitxml=test-results.xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.xml
+
+  # ── Fast Eval (Smoke) ────────────────────────────────────────────────────────
+  eval-smoke:
+    name: Eval Smoke (10 cases)
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -r backend/requirements.txt
+
+      - name: Run smoke eval (sampled)
+        id: smoke_eval
+        run: |
+          python -m eval_runner \
+            --model "${{ github.event.pull_request.head.sha }}" \
+            --sample-size 10 \
+            --datasets underwriting_qa claims_triage \
+            --output smoke_results.json
+
+      - name: Check smoke gate
+        run: |
+          python -c "
+          import json, sys
+          with open('smoke_results.json') as f:
+              r = json.load(f)
+          gate = r['summary']['gate_status']
+          pass_rate = r['summary']['pass_rate']
+          print(f'Gate: {gate} | Pass rate: {pass_rate:.1%}')
+          if gate == 'fail':
+              print('SMOKE GATE FAILED')
+              sys.exit(1)
+          print('Smoke gate passed')
+          "
+
+      - name: Post PR comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const results = JSON.parse(fs.readFileSync('smoke_results.json'));
+            const summary = results.summary;
+            const emoji = summary.gate_status === 'pass' ? '✅' : '🚫';
+            const body = `## ${emoji} LLM Eval Smoke Results
+            | Metric | Score | Gate |
+            |--------|-------|------|
+            | Pass Rate | ${(summary.pass_rate * 100).toFixed(1)}% | ${summary.gate_status} |
+            | Factual Accuracy | ${(summary.metrics_summary.factual_accuracy?.avg * 100).toFixed(1)}% | - |
+            | Hallucination Rate | ${(summary.metrics_summary.hallucination_rate?.avg * 100).toFixed(1)}% | - |
+            | Insurance Accuracy | ${(summary.metrics_summary.insurance_accuracy?.avg * 100).toFixed(1)}% | - |
+            ${summary.gate_failures?.length ? '\n**Gate Failures:**\n' + summary.gate_failures.map(f => `- ${f}`).join('\n') : ''}
+            `;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+  # ── Full Regression Eval ─────────────────────────────────────────────────────
+  eval-regression:
+    name: Full Regression Eval
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -r backend/requirements.txt
+
+      - name: Fetch baseline run ID
+        id: baseline
+        run: |
+          BASELINE=$(curl -s "$EVAL_SERVICE_URL/api/v1/runs?limit=1&status=complete&gate=pass" \
+            | python -c "import json,sys; runs=json.load(sys.stdin)['runs']; print(runs[0]['run_id'] if runs else '')")
+          echo "baseline_run_id=$BASELINE" >> $GITHUB_OUTPUT
+          echo "Baseline run: $BASELINE"
+
+      - name: Run full eval suite
+        run: |
+          python -m eval_runner \
+            --model gpt-4o \
+            --datasets all \
+            --baseline-run-id "${{ steps.baseline.outputs.baseline_run_id }}" \
+            --triggered-by ci \
+            --output full_results.json \
+            --regression-report regression_report.json
+
+      - name: Evaluate regression gate
+        id: gate
+        run: |
+          python -c "
+          import json, sys
+          with open('regression_report.json') as f:
+              r = json.load(f)
+          print(f'Gate: {r[\"gate_status\"]}')
+          print(f'Verdict: {r[\"gate_verdict\"]}')
+          print(f'Recommendation: {r[\"recommendation\"]}')
+          if r['recommendation'] == 'block':
+              print('REGRESSION GATE BLOCKED DEPLOYMENT')
+              sys.exit(1)
+          print('Regression gate passed')
+          "
+
+      - name: Upload eval artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results-${{ github.sha }}
+          path: |
+            full_results.json
+            regression_report.json
+          retention-days: 90
+
+      - name: Publish metrics to Azure Monitor
+        if: always()
+        run: |
+          python scripts/publish_metrics.py \
+            --results full_results.json \
+            --workspace-id "${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}" \
+            --workspace-key "${{ secrets.LOG_ANALYTICS_KEY }}"

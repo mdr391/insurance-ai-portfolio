@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+lib/
+lib64/
+sdist/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.manifest
+*.spec
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+
+# Environment variable files (NEVER commit secrets)
+.env
+.env.local
+.env.*.local
+*.env
+secrets.json
+credentials.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+nosetests.xml
+test-results.xml
+
+# Logs
+*.log
+logs/
+
+# ML model artifacts (large — store in Azure Blob)
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.pth
+models/artifacts/
+
+# DVC (dataset versioning)
+.dvc/tmp/
+.dvc/cache/
+
+# Node (if any frontend build tools used)
+node_modules/
+.npm/
+
+# Azure
+.azure/
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+.terraform/
+
+# Jupyter (if used for exploration)
+.ipynb_checkpoints/
+*.ipynb
+
+# Build outputs
+*.whl
+dist-info/

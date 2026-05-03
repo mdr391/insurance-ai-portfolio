@@ -1,0 +1,52 @@
+# Core
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+pydantic==2.7.1
+python-dotenv==1.0.1
+
+# Authentication
+python-jose[cryptography]==3.3.0   # JWT RS256 verification
+PyJWT==2.8.0
+msal==1.28.0                       # Microsoft identity (Azure AD)
+cryptography==42.0.7
+
+# PII Redaction
+presidio-analyzer==2.2.354
+presidio-anonymizer==2.2.354
+spacy==3.7.4                       # NER backend for Presidio
+
+# Rate Limiting
+redis==5.0.4                       # Sliding window rate limiting
+aioredis==2.0.1
+
+# Storage (Audit Log)
+motor==3.4.0                       # Async MongoDB / Cosmos DB driver
+azure-cosmos==4.6.0                # Azure Cosmos DB SDK
+
+# Policy Engine (optional: OPA)
+# opa-python-client==0.3.0         # Open Policy Agent sidecar
+
+# Azure
+azure-identity==1.17.0
+azure-keyvault-secrets==4.8.0
+azure-monitor-opentelemetry==1.4.0
+
+# LLM Providers
+openai==1.30.1                     # Azure OpenAI
+anthropic==0.29.0                  # Anthropic Claude
+
+# Observability
+opentelemetry-sdk==1.24.0
+opentelemetry-instrumentation-fastapi==0.45b0
+structlog==24.1.0
+prometheus-fastapi-instrumentator==6.1.0
+
+# Testing
+pytest==8.2.0
+pytest-asyncio==0.23.7
+httpx==0.27.0
+pytest-cov==5.0.0
+respx==0.21.1                      # Mock HTTP calls in tests
+
+# Dev
+tenacity==8.3.0

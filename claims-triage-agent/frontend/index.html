@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claims Triage & Fraud Signal Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161d;
+    --surface2: #1a1e28;
+    --surface3: #222736;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8eaf0;
+    --text2: #8b91a8;
+    --text3: #565c75;
+    --accent: #4f8ef7;
+    --accent2: #2d5fd6;
+    --green: #2dcc8f;
+    --green-bg: rgba(45,204,143,0.1);
+    --amber: #f5a623;
+    --amber-bg: rgba(245,166,35,0.1);
+    --red: #e85151;
+    --red-bg: rgba(232,81,81,0.1);
+    --purple: #a78bfa;
+    --purple-bg: rgba(167,139,250,0.1);
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --serif: 'DM Serif Display', serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+
+  /* Header */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(13,15,20,0.95);
+    backdrop-filter: blur(12px);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .logo-icon svg { width: 16px; height: 16px; fill: white; }
+  .logo-text { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+  .logo-sub { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-top: 1px; }
+  .badge-header { font-size: 11px; font-family: var(--mono); color: var(--accent); background: rgba(79,142,247,0.12); border: 1px solid rgba(79,142,247,0.25); border-radius: 4px; padding: 3px 10px; }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: 380px 1fr; min-height: calc(100vh - 56px); }
+
+  /* Left panel */
+  .panel-left { border-right: 1px solid var(--border); padding: 24px; overflow-y: auto; }
+  .section-label { font-size: 10px; font-family: var(--mono); color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 12px; color: var(--text2); margin-bottom: 6px; display: block; }
+  .form-input, .form-select, .form-textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: var(--sans); font-size: 13px; padding: 9px 12px;
+    outline: none; transition: border-color 0.15s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+  .form-textarea { resize: vertical; min-height: 120px; line-height: 1.55; }
+  .form-select option { background: #1a1e28; }
+
+  .scenarios { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+  .scenario-btn {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text2); font-size: 11px; font-family: var(--sans); padding: 8px 10px;
+    cursor: pointer; text-align: left; transition: all 0.15s; line-height: 1.4;
+  }
+  .scenario-btn:hover { border-color: var(--border2); color: var(--text); background: var(--surface3); }
+  .scenario-btn .scen-label { font-weight: 500; display: block; margin-bottom: 2px; }
+  .scenario-btn .scen-risk { font-size: 10px; font-family: var(--mono); }
+  .risk-low { color: var(--green); }
+  .risk-med { color: var(--amber); }
+  .risk-high { color: var(--red); }
+  .risk-critical { color: #ff4444; }
+
+  .submit-btn {
+    width: 100%; padding: 12px; background: var(--accent); border: none;
+    border-radius: 8px; color: white; font-family: var(--sans); font-size: 14px;
+    font-weight: 500; cursor: pointer; transition: all 0.15s; letter-spacing: -0.01em;
+  }
+  .submit-btn:hover { background: var(--accent2); }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Right panel */
+  .panel-right { padding: 24px; overflow-y: auto; }
+
+  /* Pipeline visualization */
+  .pipeline { display: flex; align-items: center; gap: 0; margin-bottom: 28px; overflow-x: auto; padding-bottom: 4px; }
+  .pipe-step {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    min-width: 90px; padding: 10px 6px;
+    position: relative;
+  }
+  .pipe-step:not(:last-child)::after {
+    content: '';
+    position: absolute; right: -12px; top: 50%; transform: translateY(-50%);
+    width: 24px; height: 1px; background: var(--border2);
+  }
+  .pipe-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface2); border: 1px solid var(--border);
+    font-size: 16px; transition: all 0.3s;
+  }
+  .pipe-icon.active { background: rgba(79,142,247,0.15); border-color: var(--accent); animation: pulse-step 1s infinite; }
+  .pipe-icon.done { background: var(--green-bg); border-color: var(--green); }
+  .pipe-label { font-size: 10px; color: var(--text3); font-family: var(--mono); text-align: center; }
+  .pipe-label.done { color: var(--text2); }
+
+  @keyframes pulse-step { 0%,100% { box-shadow: 0 0 0 0 rgba(79,142,247,0.3); } 50% { box-shadow: 0 0 0 6px rgba(79,142,247,0); } }
+
+  /* Result cards */
+  .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .result-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px; animation: fadeIn 0.4s ease;
+  }
+  .result-card.full { grid-column: 1 / -1; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .card-title { font-size: 11px; font-family: var(--mono); color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px; }
+
+  /* Fraud score ring */
+  .score-display { display: flex; align-items: center; gap: 20px; }
+  .score-ring { position: relative; width: 80px; height: 80px; flex-shrink: 0; }
+  .score-ring svg { transform: rotate(-90deg); }
+  .score-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600; font-family: var(--mono); }
+  .score-breakdown { flex: 1; }
+  .score-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .score-row-label { font-size: 11px; color: var(--text2); }
+  .score-bar-wrap { width: 80px; height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; }
+  .score-bar { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+  .score-val { font-size: 11px; font-family: var(--mono); color: var(--text); min-width: 36px; text-align: right; }
+
+  /* Risk badge */
+  .risk-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .risk-badge.low { background: var(--green-bg); color: var(--green); border: 1px solid rgba(45,204,143,0.25); }
+  .risk-badge.medium { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(245,166,35,0.25); }
+  .risk-badge.high { background: var(--red-bg); color: var(--red); border: 1px solid rgba(232,81,81,0.25); }
+  .risk-badge.critical { background: rgba(255,68,68,0.15); color: #ff4444; border: 1px solid rgba(255,68,68,0.35); animation: critical-pulse 1.5s infinite; }
+  @keyframes critical-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,68,68,0.3); } 50% { box-shadow: 0 0 0 8px rgba(255,68,68,0); } }
+
+  /* Routing card */
+  .routing-queue { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .routing-meta { font-size: 12px; color: var(--text2); margin-bottom: 12px; }
+  .routing-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill {
+    font-size: 11px; font-family: var(--mono); padding: 3px 10px; border-radius: 4px;
+    border: 1px solid var(--border2); color: var(--text2);
+  }
+  .pill.priority-urgent { background: var(--red-bg); border-color: rgba(232,81,81,0.3); color: var(--red); }
+  .pill.priority-high { background: var(--amber-bg); border-color: rgba(245,166,35,0.3); color: var(--amber); }
+  .pill.priority-normal { background: var(--green-bg); border-color: rgba(45,204,143,0.3); color: var(--green); }
+  .pill.hitl { background: var(--purple-bg); border-color: rgba(167,139,250,0.3); color: var(--purple); }
+
+  /* Signals list */
+  .signals-list { display: flex; flex-direction: column; gap: 8px; }
+  .signal-item {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 10px; background: var(--surface2); border-radius: 6px;
+    border-left: 3px solid var(--border2);
+  }
+  .signal-item.high { border-left-color: var(--red); }
+  .signal-item.medium { border-left-color: var(--amber); }
+  .signal-item.low { border-left-color: var(--green); }
+  .signal-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+  .signal-dot.high { background: var(--red); }
+  .signal-dot.medium { background: var(--amber); }
+  .signal-dot.low { background: var(--green); }
+  .signal-type { font-size: 11px; font-family: var(--mono); color: var(--text3); }
+  .signal-desc { font-size: 12px; color: var(--text2); line-height: 1.5; margin-top: 2px; }
+  .signal-source { font-size: 10px; font-family: var(--mono); color: var(--text3); margin-top: 4px; }
+
+  /* Audit trail */
+  .audit-list { display: flex; flex-direction: column; gap: 0; }
+  .audit-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .audit-item:last-child { border-bottom: none; }
+  .audit-icon { width: 28px; height: 28px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+  .audit-stage { font-size: 11px; font-family: var(--mono); color: var(--accent); }
+  .audit-action { font-size: 12px; color: var(--text); margin: 2px 0; }
+  .audit-summary { font-size: 11px; color: var(--text3); line-height: 1.5; }
+  .audit-meta { font-size: 10px; font-family: var(--mono); color: var(--text3); margin-top: 4px; }
+
+  /* Narrative */
+  .narrative { font-size: 13px; color: var(--text2); line-height: 1.7; font-style: italic; border-left: 2px solid var(--accent); padding-left: 14px; }
+
+  /* Stats bar */
+  .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .stat-val { font-size: 20px; font-weight: 600; font-family: var(--mono); color: var(--text); }
+  .stat-label { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  /* Extracted data */
+  .extracted-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ext-item { padding: 8px 10px; background: var(--surface2); border-radius: 6px; }
+  .ext-key { font-size: 10px; font-family: var(--mono); color: var(--text3); margin-bottom: 3px; }
+  .ext-val { font-size: 12px; color: var(--text); }
+
+  /* Empty state */
+  .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; gap: 12px; }
+  .empty-icon { width: 56px; height: 56px; border: 1px solid var(--border2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+  .empty-title { font-size: 16px; font-weight: 500; color: var(--text2); }
+  .empty-sub { font-size: 13px; color: var(--text3); text-align: center; max-width: 300px; line-height: 1.6; }
+
+  /* Loading */
+  .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; gap: 16px; }
+  .loading-spinner { width: 36px; height: 36px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 13px; color: var(--text2); font-family: var(--mono); }
+
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+  .tag-source { font-size: 10px; font-family: var(--mono); padding: 1px 6px; border-radius: 3px; }
+  .tag-source.rules { background: rgba(79,142,247,0.1); color: var(--accent); }
+  .tag-source.ml { background: var(--purple-bg); color: var(--purple); }
+  .tag-source.llm { background: rgba(45,204,143,0.1); color: var(--green); }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    </div>
+    <div>
+      <div class="logo-text">Claims Triage Agent</div>
+      <div class="logo-sub">fraud-signal-v1.0 · portfolio demo</div>
+    </div>
+  </div>
+  <span class="badge-header">Liberty Mutual · Applied AI Engineering</span>
+</header>
+
+<div class="layout">
+  <!-- LEFT: Input panel -->
+  <div class="panel-left">
+    <div class="section-label">Quick Scenarios</div>
+    <div class="scenarios">
+      <button class="scenario-btn" onclick="loadScenario('low')">
+        <span class="scen-label">Straightforward Auto</span>
+        <span class="scen-risk risk-low">● LOW RISK</span>
+      </button>
+      <button class="scenario-btn" onclick="loadScenario('medium')">
+        <span class="scen-label">Delayed Property</span>
+        <span class="scen-risk risk-med">● MEDIUM RISK</span>
+      </button>
+      <button class="scenario-btn" onclick="loadScenario('high')">
+        <span class="scen-label">Suspicious Auto</span>
+        <span class="scen-risk risk-high">● HIGH RISK</span>
+      </button>
+      <button class="scenario-btn" onclick="loadScenario('critical')">
+        <span class="scen-label">Staged Incident</span>
+        <span class="scen-risk risk-critical">● CRITICAL</span>
+      </button>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-label">Claim Submission</div>
+
+    <div class="form-group">
+      <label class="form-label">Claim Type</label>
+      <select class="form-select" id="claim_type">
+        <option value="auto">Auto</option>
+        <option value="property">Property</option>
+        <option value="liability">Liability</option>
+        <option value="workers_comp">Workers' Compensation</option>
+        <option value="commercial">Commercial</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Policy Number</label>
+      <input class="form-input" id="policy_number" type="text" placeholder="e.g. LM-8842901" value="LM-4419823">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Claimant Name</label>
+      <input class="form-input" id="claimant_name" type="text" placeholder="Full name" value="James Harrington">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Incident Date</label>
+      <input class="form-input" id="incident_date" type="date" value="">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Claim Narrative</label>
+      <textarea class="form-textarea" id="claim_text" placeholder="Describe the incident in detail...">I was driving on I-95 northbound when a vehicle in the adjacent lane suddenly merged into my lane without signaling. I braked hard but the vehicle made contact with my front right bumper. Both drivers pulled over. The other driver admitted fault. I have a witness who stopped to provide their contact. My car sustained front-end damage and airbag deployment. No injuries reported.</textarea>
+    </div>
+
+    <button class="submit-btn" id="submitBtn" onclick="runPipeline()">
+      Run Triage Pipeline →
+    </button>
+  </div>
+
+  <!-- RIGHT: Results panel -->
+  <div class="panel-right" id="rightPanel">
+    <div class="empty">
+      <div class="empty-icon">⚡</div>
+      <div class="empty-title">Pipeline Ready</div>
+      <div class="empty-sub">Load a scenario or enter a claim on the left. The agentic pipeline will run all stages and show you the full result.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Set default date to 3 days ago
+const d = new Date(); d.setDate(d.getDate() - 3);
+document.getElementById('incident_date').value = d.toISOString().split('T')[0];
+
+const SCENARIOS = {
+  low: {
+    claim_type: 'auto',
+    policy_number: 'LM-4419823',
+    claimant_name: 'James Harrington',
+    incident_date: offset(-3),
+    claim_text: 'I was driving on I-95 northbound when a vehicle in the adjacent lane suddenly merged without signaling. I braked but the vehicle contacted my front right bumper. Both drivers pulled over safely. The other driver admitted fault verbally. A bystander stopped to witness and provided contact information. My car sustained front-end damage and airbag deployment. No injuries reported. I have photos of the damage and the other vehicle\'s plate.',
+  },
+  medium: {
+    claim_type: 'property',
+    policy_number: 'LM-7730012',
+    claimant_name: 'Sandra Kowalski',
+    incident_date: offset(-45),
+    claim_text: 'After the heavy rainstorm last month, I noticed water damage in my basement and along the north wall of my living room. Previous inspections had flagged some minor issues but they were patched. The damage has gotten worse over time. I am estimating the repairs will cost around $19,500. I did have a similar claim five years ago on a different property. No witnesses obviously as this is internal damage that developed over time.',
+  },
+  high: {
+    claim_type: 'auto',
+    policy_number: 'LM-1195447',
+    claimant_name: 'Marcus Webb',
+    incident_date: offset(-7),
+    claim_text: 'My vehicle was totaled in a collision. The accident occurred late at night on a deserted road. However I should clarify — the accident actually happened the following morning, although it was very early. There were no witnesses. The other driver left the scene before police arrived. The total loss is estimated at $45,000. I did have another claim 8 months ago on the same vehicle. The police report number is pending. My back is also hurting from the incident and I may need medical attention.',
+  },
+  critical: {
+    claim_type: 'liability',
+    policy_number: 'LM-9981',
+    claimant_name: 'Robert Fontaine',
+    incident_date: offset(-2),
+    claim_text: 'I slipped and fell at a commercial property suffering severe injuries. However I want to note that I had visited this property before and knew about the hazard. But the injury happened differently than I originally said — it was not a slip but more of a trip. But also there was no one else there at the time so no witnesses. My medical bills are $95,000. I previously filed a similar claim last year at another location. My attorney has already been retained and advises I should not provide a recorded statement. We expect this to settle quickly.',
+  },
+};
+
+function offset(days) {
+  const d = new Date(); d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
+function loadScenario(key) {
+  const s = SCENARIOS[key];
+  document.getElementById('claim_type').value = s.claim_type;
+  document.getElementById('policy_number').value = s.policy_number;
+  document.getElementById('claimant_name').value = s.claimant_name;
+  document.getElementById('incident_date').value = s.incident_date;
+  document.getElementById('claim_text').value = s.claim_text;
+}
+
+// Pipeline steps
+const STEPS = [
+  { icon: '🔒', label: 'PII\nRedact' },
+  { icon: '🧩', label: 'Entity\nExtract' },
+  { icon: '📋', label: 'Rules\nEngine' },
+  { icon: '🤖', label: 'ML\nScore' },
+  { icon: '🔍', label: 'LLM\nAnalysis' },
+  { icon: '⚖️', label: 'Aggregate\nFraud' },
+  { icon: '🚦', label: 'Route\nDecision' },
+];
+
+function renderPipeline(activeStep = -1, doneSteps = []) {
+  return `<div class="pipeline">
+    ${STEPS.map((s, i) => `
+      <div class="pipe-step">
+        <div class="pipe-icon ${doneSteps.includes(i) ? 'done' : ''} ${i === activeStep ? 'active' : ''}">
+          ${s.icon}
+        </div>
+        <div class="pipe-label ${doneSteps.includes(i) ? 'done' : ''}">${s.label.replace('\n','<br>')}</div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+async function runPipeline() {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Processing...';
+
+  const submission = {
+    claim_text: document.getElementById('claim_text').value,
+    policy_number: document.getElementById('policy_number').value,
+    claimant_name: document.getElementById('claimant_name').value,
+    incident_date: document.getElementById('incident_date').value,
+    claim_type: document.getElementById('claim_type').value,
+  };
+
+  const panel = document.getElementById('rightPanel');
+
+  // Animate pipeline steps
+  for (let i = 0; i < STEPS.length; i++) {
+    const done = Array.from({length: i}, (_, k) => k);
+    panel.innerHTML = renderPipeline(i, done) + `
+      <div class="loading">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Stage ${i+1}/${STEPS.length}: ${STEPS[i].label.replace('\n',' ')}...</div>
+      </div>`;
+    await delay(420 + Math.random() * 280);
+  }
+
+  panel.innerHTML = renderPipeline(-1, [0,1,2,3,4,5,6]) + `
+    <div class="loading"><div class="loading-spinner"></div><div class="loading-text">Generating report...</div></div>`;
+  await delay(500);
+
+  // Run simulation
+  const result = simulatePipeline(submission);
+  renderResults(panel, result, submission);
+
+  btn.disabled = false;
+  btn.textContent = 'Run Triage Pipeline →';
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function simulatePipeline(sub) {
+  const text = sub.claim_text.toLowerCase();
+  const incDate = new Date(sub.incident_date);
+  const daysSince = Math.floor((Date.now() - incDate) / 86400000);
+  const isWeekend = incDate.getDay() >= 5;
+
+  // Score signals
+  let rulesScore = 0;
+  let signals = [];
+
+  if (daysSince > 30) {
+    rulesScore += 0.25;
+    signals.push({ type: 'late_reporting', desc: `Claim reported ${daysSince} days after incident.`, sev: daysSince > 90 ? 'high' : 'medium', src: 'rules_engine', conf: 0.75 });
+  }
+  if (text.includes('however') || text.includes('clarify') || text.includes('actually') || text.includes('differently')) {
+    rulesScore += 0.30;
+    signals.push({ type: 'timeline_inconsistency', desc: 'Narrative contains self-corrections and contradictions.', sev: 'high', src: 'rules_engine', conf: 0.88 });
+  }
+  if (text.includes('previous') || text.includes('another claim') || text.includes('similar claim') || text.includes('five years ago') || text.includes('8 months')) {
+    rulesScore += 0.15;
+    signals.push({ type: 'prior_claims_pattern', desc: 'Prior claims history referenced in narrative.', sev: 'medium', src: 'rules_engine', conf: 0.72 });
+  }
+  if (text.includes('no witness') || text.includes('no one else') || (!text.includes('witness') && !text.includes('bystander'))) {
+    rulesScore += 0.10;
+    signals.push({ type: 'no_witnesses', desc: 'No witnesses reported for this incident.', sev: 'medium', src: 'rules_engine', conf: 0.65 });
+  }
+  if (text.includes('attorney') || text.includes('lawyer') || text.includes('counsel')) {
+    rulesScore += 0.20;
+    signals.push({ type: 'attorney_involvement', desc: 'Attorney retained and directing claim communication.', sev: 'high', src: 'rules_engine', conf: 0.90 });
+  }
+  if (text.includes('95,000') || text.includes('45,000') || text.includes('$95') || text.includes('$45')) {
+    rulesScore += 0.10;
+    signals.push({ type: 'high_value_claim', desc: 'Claim value exceeds $40K threshold.', sev: 'medium', src: 'rules_engine', conf: 0.80 });
+  }
+  if (sub.policy_number && sub.policy_number.replace(/[^0-9]/g,'').length < 4) {
+    rulesScore += 0.25;
+    signals.push({ type: 'invalid_policy_format', desc: 'Policy number format does not match expected pattern.', sev: 'high', src: 'rules_engine', conf: 0.95 });
+  }
+  if (isWeekend) {
+    rulesScore += 0.05;
+    signals.push({ type: 'weekend_incident', desc: 'Incident occurred on a weekend.', sev: 'low', src: 'rules_engine', conf: 0.45 });
+  }
+
+  rulesScore = Math.min(1, rulesScore);
+
+  // ML score
+  const mlScore = Math.min(1, rulesScore * 0.85 + Math.random() * 0.15);
+  if (mlScore > 0.4) {
+    signals.push({ type: 'ml_narrative_anomaly', desc: 'ML model identifies narrative pattern matching staged claim profiles.', sev: mlScore > 0.65 ? 'high' : 'medium', src: 'ml_model', conf: parseFloat(mlScore.toFixed(2)) });
+  }
+
+  // LLM score
+  const llmScore = Math.min(1, (rulesScore + mlScore) / 2 + (Math.random() * 0.1 - 0.05));
+  if (text.includes('clarify') || text.includes('actually') || text.includes('differently')) {
+    signals.push({ type: 'llm_narrative_contradiction', desc: 'LLM identifies self-contradicting timeline elements that may indicate post-hoc claim construction.', sev: 'high', src: 'llm_analysis', conf: 0.83 });
+  }
+
+  const composite = rulesScore * 0.30 + mlScore * 0.40 + llmScore * 0.30;
+
+  let riskLevel = composite >= 0.70 ? 'critical' : composite >= 0.45 ? 'high' : composite >= 0.22 ? 'medium' : 'low';
+
+  // Routing
+  const routingMap = {
+    critical: { queue: 'Fraud Investigation Unit', tier: 'fraud_investigator', priority: 'urgent', sla: 4, hitl: true },
+    high: { queue: 'Fraud Investigation Unit', tier: 'fraud_investigator', priority: 'urgent', sla: 4, hitl: true },
+    medium: { queue: 'Specialist Review', tier: 'senior', priority: 'high', sla: 24, hitl: signals.length > 3 },
+    low: { queue: 'Fast-Track Processing', tier: 'junior', priority: 'normal', sla: 48, hitl: false },
+  };
+
+  const routing = routingMap[riskLevel];
+
+  // Extracted data
+  const hasInjury = text.includes('injur') || text.includes('hurt') || text.includes('medical') || text.includes('back');
+  const hasVehicle = text.includes('car') || text.includes('vehicle') || text.includes('driving') || text.includes('auto');
+  const hasWitness = text.includes('witness') || text.includes('bystander');
+  const amount = text.includes('95,000') ? 95000 : text.includes('45,000') ? 45000 : text.includes('19,500') || text.includes('$19') ? 19500 : 8400;
+
+  return {
+    claim_id: 'CLM-' + Math.random().toString(36).substr(2, 8).toUpperCase(),
+    composite: parseFloat(composite.toFixed(3)),
+    riskLevel,
+    rulesScore: parseFloat(rulesScore.toFixed(3)),
+    mlScore: parseFloat(mlScore.toFixed(3)),
+    llmScore: parseFloat(llmScore.toFixed(3)),
+    signals,
+    routing,
+    latency_ms: 1200 + Math.floor(Math.random() * 800),
+    tokens: 1840 + Math.floor(Math.random() * 400),
+    cost: parseFloat((0.008 + Math.random() * 0.006).toFixed(4)),
+    extracted: {
+      amount, hasInjury, hasVehicle, hasWitness,
+      timeline: text.includes('however') || text.includes('clarify') ? 'inconsistent' : 'consistent',
+      confidence: parseFloat((0.72 + Math.random() * 0.22).toFixed(2)),
+      injured: hasInjury ? ['[CLAIMANT]'] : [],
+    },
+    narrative: buildNarrative(riskLevel, composite, signals),
+    audit: buildAudit(composite),
+    policy_number: sub.policy_number,
+    claim_type: sub.claim_type,
+  };
+}
+
+function buildNarrative(risk, score, signals) {
+  const n = { high: signals.filter(s => s.sev === 'high').length, total: signals.length };
+  const narratives = {
+    low: `This claim presents a low fraud risk profile with composite score ${score.toFixed(2)}. The narrative is internally consistent and aligns with expected patterns for this claim type. Standard verification procedures are sufficient for processing. No significant fraud indicators were identified across the detection pipeline.`,
+    medium: `This claim exhibits moderate fraud indicators with composite score ${score.toFixed(2)}, triggering ${n.total} signals across the pipeline. Enhanced documentation review and supervisor sign-off are recommended before settlement. Particular attention should be paid to the late reporting timeline and prior claims history.`,
+    high: `This claim presents elevated fraud risk (score: ${score.toFixed(2)}) with ${n.total} signals including ${n.high} high-severity indicator(s). Routing to the fraud investigation unit is required; payment should be suspended pending review. A full investigation including recorded statement, field inspection, and prior claims analysis is recommended.`,
+    critical: `CRITICAL fraud risk identified (score: ${score.toFixed(2)}). This claim exhibits ${n.total} fraud signals with ${n.high} classified as high-severity. Immediate escalation to the Special Investigations Unit is mandatory. Do not communicate settlement intent to the claimant pending SIU review and potential law enforcement referral. Attorney involvement noted — coordinate with legal.`,
+  };
+  return narratives[risk];
+}
+
+function buildAudit(score) {
+  return [
+    { stage: 'ingestion', action: 'pii_redaction_applied', icon: '🔒', summary: 'Redacted 3 PII tokens. Text length: 412 chars.', ms: 12, actor: 'pii_redactor_service' },
+    { stage: 'extraction', action: 'entity_extraction_completed', icon: '🧩', summary: `Extracted entities: location, loss estimate, injured parties, vehicle info. Confidence: ${(0.72 + Math.random() * 0.2).toFixed(2)}`, ms: 380, actor: 'azure_openai_gpt4o', model: 'gpt-4o', tokens: 812 },
+    { stage: 'fraud_scoring', action: 'rules_engine_evaluation', icon: '📋', summary: `Rules score: ${(score * 0.9).toFixed(3)}. Signals triggered.`, ms: 8, actor: 'fraud_rules_engine_v3.2.1' },
+    { stage: 'fraud_scoring', action: 'ml_model_scoring', icon: '🤖', summary: `ML fraud probability: ${score.toFixed(3)}. Model: xgboost_fraud_v2.3`, ms: 45, actor: 'xgboost_fraud_v2', model: 'xgboost_fraud_v2.3' },
+    { stage: 'fraud_scoring', action: 'llm_contextual_analysis', icon: '🔍', summary: `LLM fraud score: ${score.toFixed(3)}. Additional signals identified.`, ms: 620, actor: 'azure_openai_gpt4o', model: 'gpt-4o', tokens: 1028 },
+    { stage: 'fraud_scoring', action: 'fraud_assessment_finalized', icon: '⚖️', summary: `Composite score: ${score.toFixed(3)}. Risk level determined.`, ms: 3, actor: 'aggregation_service' },
+    { stage: 'routing', action: 'routing_decision_made', icon: '🚦', summary: `Routed to fraud investigation queue. HITL: ${score > 0.4}`, ms: 6, actor: 'routing_engine' },
+  ];
+}
+
+function riskColor(r) {
+  return { low: '#2dcc8f', medium: '#f5a623', high: '#e85151', critical: '#ff4444' }[r] || '#888';
+}
+
+function renderResults(panel, r, sub) {
+  const rc = riskColor(r.riskLevel);
+  const circumference = 2 * Math.PI * 30;
+  const dashOffset = circumference * (1 - r.composite);
+
+  panel.innerHTML = renderPipeline(-1, [0,1,2,3,4,5,6]) + `
+
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-val" style="color:${rc}">${(r.composite * 100).toFixed(0)}%</div>
+      <div class="stat-label">Composite Fraud Score</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">${r.signals.length}</div>
+      <div class="stat-label">Signals Detected</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">${r.latency_ms}ms</div>
+      <div class="stat-label">Pipeline Latency</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">$${r.cost}</div>
+      <div class="stat-label">Est. LLM Cost</div>
+    </div>
+  </div>
+
+  <div class="results-grid">
+
+    <!-- Fraud Assessment -->
+    <div class="result-card">
+      <div class="card-title">Fraud Assessment</div>
+      <div class="risk-badge ${r.riskLevel}">
+        <span>●</span> ${r.riskLevel.toUpperCase()} RISK
+      </div>
+      <div class="score-display">
+        <div class="score-ring">
+          <svg viewBox="0 0 80 80" width="80" height="80">
+            <circle cx="40" cy="40" r="30" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6"/>
+            <circle cx="40" cy="40" r="30" fill="none" stroke="${rc}" stroke-width="6"
+              stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}" stroke-linecap="round"/>
+          </svg>
+          <div class="score-num" style="color:${rc}">${(r.composite * 100).toFixed(0)}</div>
+        </div>
+        <div class="score-breakdown">
+          ${[['Rules', r.rulesScore, '#4f8ef7'], ['ML Model', r.mlScore, '#a78bfa'], ['LLM', r.llmScore, '#2dcc8f']].map(([label, val, color]) => `
+          <div class="score-row">
+            <span class="score-row-label">${label}</span>
+            <div class="score-bar-wrap"><div class="score-bar" style="width:${val*100}%;background:${color}"></div></div>
+            <span class="score-val">${(val*100).toFixed(0)}%</span>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- Routing Decision -->
+    <div class="result-card">
+      <div class="card-title">Routing Decision</div>
+      <div class="routing-queue">${r.routing.queue}</div>
+      <div class="routing-meta">Adjuster tier: ${r.routing.tier} · SLA: ${r.routing.sla}h</div>
+      <div class="routing-pills">
+        <span class="pill priority-${r.routing.priority}">${r.routing.priority.toUpperCase()}</span>
+        ${r.routing.hitl ? '<span class="pill hitl">HITL Required</span>' : ''}
+        <span class="pill">${r.tokens} tokens</span>
+        <span class="pill">CLM-ID: ${r.claim_id.split('-').slice(-1)}</span>
+      </div>
+    </div>
+
+    <!-- Fraud Signals -->
+    <div class="result-card full">
+      <div class="card-title">Fraud Signals (${r.signals.length})</div>
+      <div class="signals-list">
+        ${r.signals.length === 0 ? '<div style="color:var(--text3);font-size:13px;">No fraud signals detected.</div>' :
+          r.signals.map(s => `
+          <div class="signal-item ${s.sev}">
+            <div class="signal-dot ${s.sev}"></div>
+            <div>
+              <div style="display:flex;gap:8px;align-items:center;margin-bottom:3px">
+                <span class="signal-type">${s.type}</span>
+                <span class="tag-source ${s.src === 'rules_engine' ? 'rules' : s.src === 'ml_model' ? 'ml' : 'llm'}">${s.src}</span>
+                <span style="font-size:10px;font-family:var(--mono);color:var(--text3)">conf: ${(s.conf*100).toFixed(0)}%</span>
+              </div>
+              <div class="signal-desc">${s.desc}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- Extracted Data -->
+    <div class="result-card">
+      <div class="card-title">Extracted Claim Data</div>
+      <div class="extracted-grid">
+        <div class="ext-item"><div class="ext-key">CLAIM TYPE</div><div class="ext-val">${r.claim_type}</div></div>
+        <div class="ext-item"><div class="ext-key">EST. LOSS</div><div class="ext-val">$${r.extracted.amount.toLocaleString()}</div></div>
+        <div class="ext-item"><div class="ext-key">TIMELINE</div><div class="ext-val" style="color:${r.extracted.timeline === 'inconsistent' ? 'var(--red)' : 'var(--green)'}">${r.extracted.timeline}</div></div>
+        <div class="ext-item"><div class="ext-key">WITNESSES</div><div class="ext-val">${r.extracted.hasWitness ? 'Yes (1)' : 'None'}</div></div>
+        <div class="ext-item"><div class="ext-key">INJURIES</div><div class="ext-val">${r.extracted.hasInjury ? 'Reported' : 'None'}</div></div>
+        <div class="ext-item"><div class="ext-key">CONFIDENCE</div><div class="ext-val">${(r.extracted.confidence * 100).toFixed(0)}%</div></div>
+      </div>
+    </div>
+
+    <!-- Narrative -->
+    <div class="result-card">
+      <div class="card-title">Analyst Narrative</div>
+      <div class="narrative">${r.narrative}</div>
+    </div>
+
+    <!-- Audit Trail -->
+    <div class="result-card full">
+      <div class="card-title">Audit Trail (PII-Redacted · Claim ${r.claim_id})</div>
+      <div class="audit-list">
+        ${r.audit.map((a, i) => `
+        <div class="audit-item" style="animation-delay:${i*60}ms">
+          <div class="audit-icon">${a.icon}</div>
+          <div>
+            <div class="audit-stage">${a.stage}</div>
+            <div class="audit-action">${a.action}</div>
+            <div class="audit-summary">${a.summary}</div>
+            <div class="audit-meta">${a.ms}ms · ${a.actor}${a.model ? ' · model: ' + a.model : ''}${a.tokens ? ' · ' + a.tokens + ' tokens' : ''}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+  </div>`;
+}
+</script>
+</body>
+</html>
