@@ -28,7 +28,7 @@ import logging
 import re
 import uuid
 from datetime import datetime
-from typing import Iterator
+from typing import Iterator, Optional
 
 from models.schemas import DocumentChunk, DocumentType, IndexingJob
 
@@ -252,6 +252,3 @@ class DocumentIngestionPipeline:
         """
         logger.info(f"Indexed {len(embedded_chunks)} chunks into vector store")
 
-
-# Optional: needed for _chunk_document type hint
-from typing import Optional

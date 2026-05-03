@@ -57,7 +57,7 @@ class PIIRedactor:
     def __init__(self):
         self.last_redaction_count = 0
         self._compiled = [
-            (re.compile(pattern, re.IGNORECASE), replacement)
+            (re.compile(pattern), replacement)
             for pattern, replacement in PII_PATTERNS
         ]
 

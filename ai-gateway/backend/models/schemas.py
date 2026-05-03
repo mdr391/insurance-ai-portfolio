@@ -49,9 +49,9 @@ class AuthenticatedCaller(BaseModel):
 # ─── Policy Engine ────────────────────────────────────────────────────────────
 
 class PolicyDecision(str, Enum):
-    ALLOW   = "allow"
-    DENY    = "deny"
-    REDACT  = "redact_and_allow"    # PII found, redacted, then forwarded
+    ALLOW           = "allow"
+    DENY            = "deny"
+    REDACT_AND_ALLOW = "redact_and_allow"    # PII found, redacted, then forwarded
 
 
 class PolicyRule(BaseModel):
