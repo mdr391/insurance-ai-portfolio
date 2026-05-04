@@ -4,6 +4,10 @@
 > Four production-grade AI systems demonstrating enterprise AI engineering across the full insurance technology stack — from claim intake to knowledge retrieval, governance, and systematic evaluation.
 
 ---
+
+![CI](https://github.com/mdr391/insurance-ai-portfolio/actions/workflows/ci.yml/badge.svg)
+
+---
 ## Live Demos
 
 | Project | Demo |
@@ -17,7 +21,7 @@
 
 ## Portfolio Overview
 
-This portfolio was built to demonstrate the exact capabilities outlined in the **Senior Applied AI Engineer** job description at Liberty Mutual Insurance. Each project maps directly to a stated requirement.
+Enterprise AI engineering portfolio — Claims Triage Agent, Underwriting Copilot (RAG), Governed AI Gateway, LLM Eval & Regression Framework.
 
 | Project | Domain | JD Requirement |
 |---------|--------|----------------|
