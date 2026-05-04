@@ -50,8 +50,9 @@ class FraudRulesEngine:
             return [], 0.0
 
         total_weight = sum(weight_map[s.severity] * s.confidence for s in signals)
-        max_possible = sum(weight_map[s.severity] for s in signals)
-        score = min(1.0, total_weight / max(max_possible, 1e-9))
+        sum_weights = sum(weight_map[s.severity] for s in signals)
+        max_possible = max(sum_weights, 1.0)
+        score = min(1.0, total_weight / max_possible)
 
         logger.info(
             f"Rules engine: {len(signals)} signals, score={score:.3f} "
