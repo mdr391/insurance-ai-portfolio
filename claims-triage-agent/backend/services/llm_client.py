@@ -175,7 +175,8 @@ class LLMClient:
 
     def _simulate_extraction(self, text: str, claim_type: ClaimType) -> dict:
         text_lower = text.lower()
-        has_injury = any(w in text_lower for w in ["injur", "hurt", "hospitali", "medical", "pain"])
+        negated_injury = any(p in text_lower for p in ["no injur", "no hurt", "without injur", "uninjur"])
+        has_injury = not negated_injury and any(w in text_lower for w in ["injur", "hurt", "hospitali", "medical", "pain"])
         has_vehicle = any(w in text_lower for w in ["car", "truck", "vehicle", "collision", "accident", "rear"])
         has_property = any(w in text_lower for w in ["house", "roof", "water", "flood", "fire", "damage"])
         amount_hint = 45000 if "totaled" in text_lower else (8500 if has_injury else 3200)
