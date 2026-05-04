@@ -159,6 +159,8 @@ class DocumentIngestionPipeline:
                     token_count=token_count,
                 )
                 chunk_index += 1
+                if end >= len(section_text):
+                    break
                 start = end - CHUNK_OVERLAP_CHARS  # overlap
                 if start >= end:
                     break
