@@ -1,7 +1,17 @@
 # Insurance AI Engineering Portfolio
-### Senior Applied AI Engineer · Liberty Mutual Insurance
+### Senior Applied AI Engineer 
 
 > Four production-grade AI systems demonstrating enterprise AI engineering across the full insurance technology stack — from claim intake to knowledge retrieval, governance, and systematic evaluation.
+
+---
+## Live Demos
+
+| Project | Demo |
+|---------|------|
+| Claims Triage Agent | [Open Demo](https://mdr391.github.io/insurance-ai-portfolio/claims-triage-agent/frontend/index.html) |
+| Underwriting Copilot | [Open Demo](https://mdr391.github.io/insurance-ai-portfolio/uw-copilot/frontend/index.html) |
+| AI Gateway | [Open Demo](https://mdr391.github.io/insurance-ai-portfolio/ai-gateway/frontend/index.html) |
+| LLM Eval Framework | [Open Demo](https://mdr391.github.io/insurance-ai-portfolio/llm-eval-framework/frontend/index.html) |
 
 ---
 
