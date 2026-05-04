@@ -1,5 +1,7 @@
 # Claims Triage & Fraud Signal Agent
 
+![CI](https://github.com/mdr391/insurance-ai-portfolio/actions/workflows/ci.yml/badge.svg)
+
 > **Portfolio Project** — Senior Applied AI Engineer · Insurance Domain  
 > Demonstrates production-grade agentic AI for enterprise insurance use cases
 

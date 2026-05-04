@@ -1,5 +1,7 @@
 # LLM Evaluation & Regression Framework
 
+![CI](https://github.com/mdr391/insurance-ai-portfolio/actions/workflows/ci.yml/badge.svg)
+
 > **Portfolio Project** — Senior Applied AI Engineer · Insurance Domain  
 > Demonstrates production-grade LLM evaluation with CI/CD regression gating
 

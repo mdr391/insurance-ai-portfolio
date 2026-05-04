@@ -1,5 +1,7 @@
 # Underwriting Copilot — RAG Knowledge System
 
+![CI](https://github.com/mdr391/insurance-ai-portfolio/actions/workflows/ci.yml/badge.svg)
+
 > **Portfolio Project** — Senior Applied AI Engineer · Insurance Domain  
 > Demonstrates enterprise-grade Retrieval-Augmented Generation for underwriting knowledge queries
 

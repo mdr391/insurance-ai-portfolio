@@ -1,5 +1,7 @@
 # Governed AI Gateway
 
+![CI](https://github.com/mdr391/insurance-ai-portfolio/actions/workflows/ci.yml/badge.svg)
+
 > **Portfolio Project** — Senior Applied AI Engineer · Insurance Domain  
 > Demonstrates enterprise-grade AI governance: RBAC, PII protection, audit logs, cost chargeback
 
