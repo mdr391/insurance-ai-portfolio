@@ -99,7 +99,7 @@ class UnderwritingRAGEngine:
             "doc_type": "underwriting_guideline",
             "section": "Flood & Water Exclusions",
             "page": 67,
-            "content": "Standard commercial property policies exclude flood as defined in ISO CP 10 30. Flood coverage may be offered as a manuscript endorsement for properties in FEMA Flood Zone X or B only; Zones A, AE, V, and VE are non-eligible. The maximum flood sublimit is $5M per occurrence. Coastal properties within 1,000 feet of tidal water require a separate wind/hail deductible of 3-5% of TIV.",
+            "content": "Standard commercial property policies exclude flood as defined in ISO CP 10 30. Flood coverage may be offered as a manuscript endorsement for properties in FEMA Flood Zone X or B only; Zones A, AE, V, and VE are non-eligible. The maximum flood sublimit is $5M per occurrence. Coastal properties within 1,000 feet of tidal water require a separate wind/hail deductible of 3-5% of TIV. Zone eligibility applies to all commercial property flood endorsements.",
         },
         {
             "doc_id": "UG-2024-001",
@@ -220,7 +220,7 @@ class UnderwritingRAGEngine:
         generation = await self._generate(query_text, reranked)
         generation_ms = int((time.time() - t_gen) * 1000)
 
-        total_ms = int((time.time() - t_start) * 1000)
+        total_ms = max(1, int((time.time() - t_start) * 1000))
 
         # Build citations
         citations = self._build_citations(reranked)
