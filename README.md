@@ -301,5 +301,4 @@ REDIS_CONNECTION_STRING=your-redis.redis.cache.windows.net:6380,...
 
 Built by Zahidur Rahman — mdr391@gmail.com — www.linkedin.com/in/zahidur-rahman-mdr391
 
-*Targeting: Senior Applied AI Engineer *
 Copyright © 2026 Zahidur Rahman
